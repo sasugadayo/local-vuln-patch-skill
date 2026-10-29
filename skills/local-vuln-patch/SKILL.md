@@ -1,9 +1,9 @@
 ---
 name: local-vuln-patch
 description: >-
-  Check this machine (not a repository) for vulnerable language runtimes, global CLI tools and packages, and update
+  Check this machine (macOS, Linux or Windows; not a repository) for vulnerable language runtimes, global CLI tools and packages, and update
   only what the user approves. Finds every install of Node, Python, Go, Ruby, PHP, Rust, Bun and friends across
-  Homebrew, mise, asdf, nvm, fnm, volta, n, nodebrew, pyenv, uv, pipx, conda, rbenv, global npm/pnpm/yarn/bun,
+  Homebrew, mise, asdf, nvm, fnm, volta, n, nodebrew, pyenv, uv, pipx, conda, rbenv, scoop, chocolatey, global npm/pnpm/yarn/bun,
   go install, cargo install, composer global and dotnet tools, plus copies bundled inside other tools
   (pip's vendored certifi, libraries compiled into Go binaries). Matches them against OSV.dev, either for one
   advisory (GHSA / CVE / PYSEC / GO / RUSTSEC ID, or a vendor notice) or for every known vulnerability.
@@ -39,16 +39,22 @@ bash scripts/inventory.sh > "${TMPDIR:-/tmp}/inventory.tsv"              # 30–
 bash scripts/osv-check.sh "${TMPDIR:-/tmp}/inventory.tsv" GHSA-xxxx ...   # only these advisories (IDs or aliases)
 bash scripts/osv-check.sh "${TMPDIR:-/tmp}/inventory.tsv"                 # every known vulnerability
 ```
+```powershell
+# Windows (Windows PowerShell 5.1 or PowerShell 7; needs no jq)
+powershell -ExecutionPolicy Bypass -File scripts\inventory.ps1 > $env:TEMP\inventory.tsv
+powershell -ExecutionPolicy Bypass -File scripts\osv-check.ps1 $env:TEMP\inventory.tsv GHSA-xxxx
+powershell -ExecutionPolicy Bypass -File scripts\osv-check.ps1 $env:TEMP\inventory.tsv
+```
 
-`SCAN_ROOTS="$HOME/src $HOME/work"` and `VENV_DEPTH=6` control where Python virtual environments are searched. `osv-check.sh` needs `curl` and `jq` and sends only ecosystem, package name and version to OSV.dev — no paths, user names or host names.
+`SCAN_ROOTS="$HOME/src $HOME/work"` and `VENV_DEPTH=6` (Windows: `-ScanRoots C:\src,D:\work -VenvDepth 6`) control where Python virtual environments are searched. `osv-check.sh` needs `curl` and `jq`; both versions send only ecosystem, package name and version to OSV.dev — no paths, user names or host names.
 
-inventory.sh sections (TSV): `runtimes` (every install of node, python, go, ruby, … with version, installing tool, and whether it is the one on PATH now), `venvs` (and the repository each belongs to), `packages` (ecosystem, name, version, installing tool, path), `homebrew` (formula versions), `not_checked`.
+inventory sections (TSV): `runtimes` (every install of node, python, go, ruby, … with version, installing tool, and whether it is the one on PATH now), `venvs` (and the repository each belongs to), `packages` (ecosystem, name, version, installing tool, path), `homebrew` (formula versions; macOS/Linux only), `not_checked`.
 
-osv-check.sh sections: `findings` (one row per vulnerable package version, duplicates across databases merged), `locations` (every installed copy), `units` (copies grouped into what is updated as a whole, worst first).
+osv-check sections: `findings` (one row per vulnerable package version, duplicates across databases merged), `locations` (every installed copy), `units` (copies grouped into what is updated as a whole, worst first).
 
 Things OSV.dev does not cover — the Node.js / Python / Ruby runtimes themselves, Homebrew formulae, OS packages — are compared by hand: take the fixed versions from step 1 and check them against `runtimes` and `homebrew`. For Homebrew also run `brew outdated` to see whether a newer formula exists at all.
 
-On Windows there is no survey script. Do the same survey by hand with `where.exe` / `Get-Command -All`, `npm root -g`, `py -0p`, `pipx list`, `uv tool list` and so on, and say in the report that it was done by hand.
+On Windows, compare winget / scoop / chocolatey installs by hand the same way (`winget list`, `scoop list`, `choco list`), and check `py -0p` for Python installs the script did not list.
 
 ## 3. Propose
 
@@ -89,6 +95,12 @@ Then ask which rows to apply (a multi-select question when the agent has one).
 | composer global | `composer global update <package>` | |
 | dotnet tool | `dotnet tool update -g <tool>` | |
 | rustup | `rustup update` | |
+| nvm-windows | `nvm install <v>` then `nvm use <v>` | `nvm use` may need an elevated shell; ask first |
+| scoop | `scoop update <app>` | |
+| chocolatey | `choco upgrade <package>` | Needs an elevated shell; ask first |
+| winget / installer (`Program Files`) | `winget upgrade --id <id>` (find the id with `winget list <name>`), or the vendor's installer | Machine-wide installs need elevation; ask first |
+| python.org installer | `winget upgrade --id Python.Python.3.<minor>` or the python.org installer for the fixed version | pip inside it: `py -3.<minor> -m pip install -U pip` |
+| Microsoft Store | update from the Store | |
 | app bundle / system / OS packages | not updated here | Point to the app's updater, Software Update, `apt` / `dnf` |
 | `~/.local/bin`, `/usr/local` | find who installed it first (an installer script, a `.pkg`, a manual copy) | Ask before replacing; use that installer's update path |
 
@@ -106,6 +118,8 @@ Open a new login shell so PATH and version-manager shims are fresh, then run the
 bash -lc 'bash scripts/inventory.sh' > "${TMPDIR:-/tmp}/inventory-after.tsv"   # zsh users: zsh -lic
 bash scripts/osv-check.sh "${TMPDIR:-/tmp}/inventory-after.tsv" <same IDs>
 ```
+
+On Windows, open a new PowerShell window and run inventory.ps1 / osv-check.ps1 again.
 
 Check that each chosen row is gone from `locations` and that the `active` runtime in `runtimes` is the new version. An old install earlier on PATH keeps winning silently; if so, show `which -a <name>` and the PATH order.
 

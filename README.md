@@ -4,11 +4,11 @@ An agent skill that checks **your machine** — not your repository — for vuln
 
 Dependabot and `npm audit` watch your repositories. Nobody watches the Node, Python and CLI tools installed on the laptop itself, often several versions side by side through different managers. When an advisory lands ("certifi shipped a compromised CA", "Node.js before 22.x has a TLS bug"), this skill answers "am I affected, where, and how do I fix each copy?"
 
-Works on macOS and Linux (Windows: the procedure applies, the survey is done by hand).
+Works on macOS, Linux, and Windows.
 
 ## What it finds
 
-- Every install of node, python, go, ruby, php, bun, deno, rust, uv, pip, git, curl, openssl … installed by Homebrew, mise, asdf, nvm, fnm, volta, n, nodebrew, pyenv, uv, rbenv, conda, sdkman, rustup, official installers, or the OS — with which one is active on PATH
+- Every install of node, python, go, ruby, php, bun, deno, rust, uv, pip, git, curl, openssl … installed by Homebrew, mise, asdf, nvm / nvm-windows, fnm, volta, n, nodebrew, pyenv / pyenv-win, uv, rbenv, conda, sdkman, rustup, scoop, chocolatey, official installers, or the OS — with which one is active on PATH
 - Packages inside them: global npm / pnpm / yarn / bun packages (including nested dependencies), pipx and `uv tool` apps, user-site and virtual-environment Python packages, gems, composer global, dotnet tools, `cargo install` crates
 - Bundled copies that are easy to miss: the certifi, urllib3 and requests **vendored inside pip**, packages bundled inside Homebrew formulae, and the libraries and Go standard library **compiled into Go binaries** (`gh`, `trivy`, Docker Desktop's CLIs, …)
 
@@ -37,7 +37,7 @@ Then ask your agent, for example:
 
 ## Run the survey by hand
 
-Needs `bash`, `curl` and `jq` (`go` to look inside Go binaries).
+macOS / Linux — needs `bash`, `curl` and `jq` (`go` to look inside Go binaries):
 
 ```bash
 bash skills/local-vuln-patch/scripts/inventory.sh > /tmp/inventory.tsv
@@ -45,9 +45,16 @@ bash skills/local-vuln-patch/scripts/osv-check.sh /tmp/inventory.tsv            
 bash skills/local-vuln-patch/scripts/osv-check.sh /tmp/inventory.tsv GHSA-xxxx-...  # one advisory
 ```
 
+Windows — Windows PowerShell 5.1 or PowerShell 7, nothing else required:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File skills\local-vuln-patch\scripts\inventory.ps1 > $env:TEMP\inventory.tsv
+powershell -ExecutionPolicy Bypass -File skills\local-vuln-patch\scripts\osv-check.ps1 $env:TEMP\inventory.tsv
+```
+
 ## Not covered
 
-OS packages (apt, dnf, macOS system files), GUI and Electron apps, IDE extensions, Docker images, and dependencies inside project repositories. The survey lists these so they are not mistaken for "checked and clean".
+OS packages (apt, dnf, macOS system files, Windows Update), winget / scoop / chocolatey package versions (compared by hand), GUI and Electron apps, IDE extensions, Docker images, and dependencies inside project repositories. The survey lists these so they are not mistaken for "checked and clean".
 
 ## License
 
